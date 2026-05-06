@@ -1,0 +1,8 @@
+pyrogram
+tgcrypto
+pymongo
+fastapi
+uvicorn
+requests
+beautifulsoup4
+apscheduler
