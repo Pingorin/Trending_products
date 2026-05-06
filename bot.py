@@ -1,28 +1,24 @@
-import os
 from pyrogram import Client
 from fastapi import FastAPI
+import info  # Nayi info.py file ko import kiya
 
-# --- Credentials ---
-API_ID = "YOUR_API_ID"
-API_HASH = "YOUR_API_HASH"
-BOT_TOKEN = "YOUR_BOT_TOKEN"
-
-# --- Client Setup (Plugins connect karna) ---
+# --- Client Setup (Plugins connect karna aur info.py se data lena) ---
 app = FastAPI()
+
 bot = Client(
     "ScraperBot", 
-    api_id=API_ID, 
-    api_hash=API_HASH, 
-    bot_token=BOT_TOKEN,
+    api_id=info.API_ID, 
+    api_hash=info.API_HASH, 
+    bot_token=info.BOT_TOKEN,
     plugins=dict(root="plugins") # Ye line saare commands auto-load karegi
 )
 
 # --- FastAPI Server ---
 @app.get("/")
 def home():
-    return {"status": "Modular Playwright Scraper is running!"}
+    return {"status": "Modular Playwright Scraper is running with Info.py!"}
 
 @app.on_event("startup")
 async def startup():
     await bot.start()
-    print("Bot started with plugins successfully!")
+    print("Bot started successfully with credentials from info.py!")
