@@ -8,11 +8,11 @@ from fastapi import FastAPI
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # --- Credentials ---
-API_ID = "YOUR_API_ID"  # Apna Telegram API ID dalein
-API_HASH = "YOUR_API_HASH" # Apna API Hash dalein
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+API_ID = "20638104"  # Apna Telegram API ID dalein
+API_HASH = "6c884690ca85d39a4c5ad7c15b194e42" # Apna API Hash dalein
+BOT_TOKEN = "8782883934:AAFkE-O0JCkLIWYmAfhVVxbY5hZoR24t3vI"
 MONGO_URI = "YOUR_MONGODB_URI"
-OWNER_ID = 123456789  # Apna Telegram User ID dalein jahan message chahiye
+OWNER_ID = 7245547751  # Apna Telegram User ID dalein jahan message chahiye
 
 # --- Database Setup ---
 db_client = MongoClient(MONGO_URI)
