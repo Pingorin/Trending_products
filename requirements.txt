@@ -3,6 +3,5 @@ tgcrypto
 pymongo
 fastapi
 uvicorn
-requests
+playwright
 beautifulsoup4
-apscheduler
