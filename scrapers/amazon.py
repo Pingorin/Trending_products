@@ -22,52 +22,63 @@ async def get_amazon_trending():
             html = await page.content()
             soup = BeautifulSoup(html, 'html.parser')
             
-            # Smart Tag Finder: Hum multiple layouts check karenge
-            cards = soup.find_all("li", class_="a-carousel-card") # Naya layout (jo photo me hai)
+            # Cards dhoondhna
+            cards = soup.find_all("li", class_="a-carousel-card")
             if not cards:
                 cards = soup.find_all("div", id="gridItemRoot")
             if not cards:
-                cards = soup.find_all("div", class_="zg-grid-general-faceout") # Purana layout
+                cards = soup.find_all("div", class_="zg-grid-general-faceout")
 
-            # Agar ab bhi nahi mila toh screenshot le lo
             if not cards:
                 await page.screenshot(path="amazon_error.png")
                 return ["SCREENSHOT_SAVED"]
 
-            # Top 5 unique products nikalenge
+            # Super-Smart Extraction Logic
             for card in cards:
-                if len(products) >= 5: # Sirf top 5 chahiye
+                if len(products) >= 5:
                     break
                     
-                # Link nikalna
-                link_tag = card.find("a", class_="a-link-normal")
-                if not link_tag or 'href' not in link_tag.attrs:
+                # 1. Link dhoondhna (koi bhi valid a-tag)
+                a_tags = card.find_all("a", href=True)
+                link = None
+                for a in a_tags:
+                    if "amazon.in" in a['href'] or a['href'].startswith('/'):
+                        link = f"https://www.amazon.in{a['href']}" if a['href'].startswith('/') else a['href']
+                        break
+                
+                if not link:
                     continue
-                
-                link = f"https://www.amazon.in{link_tag['href']}" if not link_tag['href'].startswith('http') else link_tag['href']
-                
-                # Name nikalna (Image ke alt text ya div se)
+                    
+                # 2. Name dhoondhna (Image ka alt tag kabhi fail nahi hota)
                 name = ""
                 img_tag = card.find("img")
-                name_div = card.find("div", class_="_cDEzb_p13n-sc-css-line-clamp-3_g3ie1") or card.find("div", class_="p13n-sc-truncate")
-                
-                if name_div:
-                    name = name_div.text.strip()
-                elif img_tag and img_tag.get('alt'):
+                if img_tag and img_tag.get('alt'):
                     name = img_tag['alt']
+                else:
+                    name = "Trending Product" # Agar naam nahi mila
                     
-                if not name:
-                    continue
-                    
-                # Price nikalna
-                price_tag = card.find("span", class_="p13n-sc-price") or card.find("span", class_="a-price-whole")
-                price = price_tag.text.strip() if price_tag else 'N/A'
+                # 3. Price dhoondhna (Direct Rupee '₹' symbol ko catch karna)
+                price = "N/A"
+                rupee_texts = card.find_all(string=lambda t: t and '₹' in t)
+                if rupee_texts:
+                    price = rupee_texts[0].strip()
+                else:
+                    price_tag = card.find("span", class_="a-price-whole")
+                    if price_tag:
+                        price = "₹" + price_tag.text.strip()
                 
-                # Format karke list me dalna
-                product_info = f"📦 **{name[:60]}...**\n💰 {price}\n🔗 [View on Amazon]({link})"
-                if product_info not in products: # Duplicate rokne ke liye
+                # Title ko thoda chota karna taki message sundar dikhe
+                short_name = (name[:60] + '...') if len(name) > 60 else name
+                
+                product_info = f"📦 **{short_name}**\n💰 {price}\n🔗 [View on Amazon]({link})"
+                if product_info not in products:
                     products.append(product_info)
                     
+            # Agar extraction fail hota hai, toh screenshot bhej do
+            if not products:
+                await page.screenshot(path="amazon_error.png")
+                return ["SCREENSHOT_SAVED"]
+
         except Exception as e:
             products.append(f"⚠️ Amazon Error: {str(e)}")
         finally:
