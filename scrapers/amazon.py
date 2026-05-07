@@ -2,8 +2,14 @@ import asyncio
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 
-async def get_amazon_trending():
-    url = "https://www.amazon.in/gp/bestsellers"
+# Yahan humne 'list_type' add kiya hai
+async def get_amazon_data(list_type="bestsellers"):
+    # Command ke hisaab se URL decide hoga
+    if list_type == "bestsellers":
+        url = "https://www.amazon.in/gp/bestsellers"
+    elif list_type == "trending":
+        url = "https://www.amazon.in/gp/movers-and-shakers"
+        
     products = []
     
     async with async_playwright() as p:
@@ -27,13 +33,11 @@ async def get_amazon_trending():
             if not cards: cards = soup.find_all("div", class_="zg-grid-general-faceout")
 
             if not cards:
-                await page.screenshot(path="amazon_error.png")
                 return ["SCREENSHOT_SAVED"]
 
             for card in cards:
                 if len(products) >= 5: break
                     
-                # 1. Link nikalna
                 a_tags = card.find_all("a", href=True)
                 link = None
                 for a in a_tags:
@@ -42,7 +46,6 @@ async def get_amazon_trending():
                         break
                 if not link: continue
 
-                # 2. Image URL nikalna
                 image_url = "https://via.placeholder.com/400x400.png?text=No+Image"
                 img_tag = card.find("img")
                 name = ""
@@ -53,25 +56,18 @@ async def get_amazon_trending():
                     if img_tag.get('alt'):
                         name = img_tag['alt']
 
-                # 3. Agar image ke 'alt' me naam nahi mila, toh text extract karo
                 if not name or name == "Trending Product":
                     texts = [t.strip() for t in card.stripped_strings if len(t.strip()) > 15 and '₹' not in t]
-                    if texts:
-                        name = texts[0]
-                    else:
-                        name = "Amazon Trending Product"
+                    if texts: name = texts[0]
+                    else: name = "Amazon Product"
 
-                # 4. Price nikalna
                 price = "N/A"
                 rupee_texts = card.find_all(string=lambda t: t and '₹' in t)
-                if rupee_texts:
-                    price = rupee_texts[0].strip()
+                if rupee_texts: price = rupee_texts[0].strip()
                 else:
                     price_tag = card.find("span", class_="a-price-whole")
-                    if price_tag:
-                        price = "₹" + price_tag.text.strip()
+                    if price_tag: price = "₹" + price_tag.text.strip()
                 
-                # Dictionary format me save karna taki bot photo bhej sake
                 products.append({
                     "name": name[:75] + '...' if len(name) > 75 else name,
                     "price": price,
@@ -80,7 +76,6 @@ async def get_amazon_trending():
                 })
                     
             if not products:
-                await page.screenshot(path="amazon_error.png")
                 return ["SCREENSHOT_SAVED"]
 
         except Exception as e:
