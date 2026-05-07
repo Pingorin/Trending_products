@@ -10,23 +10,35 @@ async def start_cmd(client, message):
 
 @Client.on_message(filters.command("amazon") & filters.private)
 async def amazon_cmd(client, message):
-    msg = await message.reply_text("🔎 Amazon Bestsellers check kar raha hu...")
+    msg = await message.reply_text("🔎 Amazon Bestsellers ki photos nikal raha hu...")
     data = await get_amazon_trending()
     
-    # Check agar scraper ne screenshot signal bheja hai
-    if data and "SCREENSHOT_SAVED" in data:
+    # Agar error/screenshot aaya
+    if data and isinstance(data[0], str) and "SCREENSHOT_SAVED" in data[0]:
         if os.path.exists("amazon_error.png"):
-            await message.reply_photo(
-                photo="amazon_error.png",
-                caption="⚠️ Amazon ne data nahi diya. Is photo me dekho kya dikh raha hai (Captcha ya Block?)"
-            )
-            os.remove("amazon_error.png") # Delete after sending
-            await msg.delete()
-        else:
-            await msg.edit_text("❌ Data nahi mila aur screenshot bhi fail ho gaya.")
+            await message.reply_photo(photo="amazon_error.png", caption="⚠️ Layout issue")
+            os.remove("amazon_error.png")
+        await msg.delete()
         return
 
-    response = "\n\n---\n\n".join(data) if data else "Kuch nahi mila."
-    await msg.edit_text(f"🔥 **Amazon Top Trending:**\n\n{response}", disable_web_page_preview=True)
+    if not data or (isinstance(data[0], str) and "Error" in data[0]):
+        await msg.edit_text("❌ Kuch nahi mila ya scraper fail ho gaya.")
+        return
 
-# Flipkart aur Meesho ke commands niche wese hi rakhein...
+    # Loading message delete karo
+    await msg.delete()
+    
+    # Har product ko alag photo message ke tarah bhejo
+    for item in data:
+        caption_text = f"🔥 **Trending on Amazon**\n\n📦 **Name:** {item['name']}\n💰 **Price:** {item['price']}\n🔗 **Link:** [Click Here]({item['link']})"
+        try:
+            await client.send_photo(
+                chat_id=message.chat.id,
+                photo=item['image'],
+                caption=caption_text
+            )
+        except Exception:
+            # Agar image URL kharab ho, toh sirf text bhej do
+            await client.send_message(chat_id=message.chat.id, text=caption_text, disable_web_page_preview=False)
+
+# ... (Niche Flipkart aur Meesho ka purana code waise hi rehne dein)
