@@ -2,9 +2,8 @@ import asyncio
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 
-# Yahan humne 'list_type' add kiya hai
 async def get_amazon_data(list_type="bestsellers"):
-    # Command ke hisaab se URL decide hoga
+    # URL Selection (Same logic)
     if list_type == "bestsellers":
         url = "https://www.amazon.in/gp/bestsellers"
     elif list_type == "trending":
@@ -28,6 +27,7 @@ async def get_amazon_data(list_type="bestsellers"):
             html = await page.content()
             soup = BeautifulSoup(html, 'html.parser')
             
+            # Cards dhoondhna
             cards = soup.find_all("li", class_="a-carousel-card")
             if not cards: cards = soup.find_all("div", id="gridItemRoot")
             if not cards: cards = soup.find_all("div", class_="zg-grid-general-faceout")
@@ -46,30 +46,56 @@ async def get_amazon_data(list_type="bestsellers"):
                         break
                 if not link: continue
 
+                # --- SUPER PRECISE PHOTO & NAME FINDER ---
                 image_url = "https://via.placeholder.com/400x400.png?text=No+Image"
-                img_tag = card.find("img")
                 name = ""
                 
-                if img_tag:
-                    if img_tag.get('src') and 'media-amazon' in img_tag['src']:
+                # specific photo container ko target karna (zg-div-img-card)
+                # agar wo na mile to general finder use karna
+                image_container = card.find("div", class_="zg-div-img-card") or card.find("div", class_="a-img-container")
+                
+                if image_container:
+                    img_tag = image_container.find("img")
+                    if img_tag and img_tag.get('src') and 'media-amazon' in img_tag['src']:
                         image_url = img_tag['src']
-                    if img_tag.get('alt'):
-                        name = img_tag['alt']
+                        if img_tag.get('alt'):
+                            name = img_tag['alt']
+                
+                # photo fail hone par fallback
+                if image_url == "https://via.placeholder.com/400x400.png?text=No+Image":
+                    # pure dabbe me koi bhi real product photo dhoondho (skip icons)
+                    for img in card.find_all("img"):
+                        src = img.get('src', '')
+                        alt = img.get('alt', '')
+                        if 'media-amazon' in src and "arrow" not in alt.lower():
+                            image_url = src
+                            if alt: name = alt
+                            break
 
-                if not name or name == "Trending Product":
-                    texts = [t.strip() for t in card.stripped_strings if len(t.strip()) > 15 and '₹' not in t]
-                    if texts: name = texts[0]
-                    else: name = "Amazon Product"
+                # agar naam abhi bhi 'increased' wala hai, to text div se naam nikal lo
+                if "increased" in name.lower() or "arrow" in name.lower():
+                    text_tags = card.find_all("div", class_="p13n-sc-truncate") or card.find_all("div", class_="_cDEzb_p13n-sc-css-line-clamp-3_g3ie1")
+                    if text_tags:
+                        name = text_tags[0].text.strip()
+                    else:
+                        name = "Amazon Trending Product" # fallback
 
+                # Format short title
+                short_name = (name[:75] + '...') if len(name) > 75 else name
+
+                # --- SUPER PRECISE PRICE FINDER ---
                 price = "N/A"
-                rupee_texts = card.find_all(string=lambda t: t and '₹' in t)
-                if rupee_texts: price = rupee_texts[0].strip()
+                price_container = card.find("span", class_="p13n-sc-price") or card.find("span", class_="a-price-whole")
+                if price_container:
+                    price = price_container.text.strip()
+                    if '₹' not in price: price = "₹" + price
                 else:
-                    price_tag = card.find("span", class_="a-price-whole")
-                    if price_tag: price = "₹" + price_tag.text.strip()
+                    # broad search based on rupee symbol ₹ (Movers logic)
+                    price_texts = card.find_all(string=lambda t: t and '₹' in t)
+                    if price_texts: price = price_texts[0].strip()
                 
                 products.append({
-                    "name": name[:75] + '...' if len(name) > 75 else name,
+                    "name": short_name,
                     "price": price,
                     "link": link,
                     "image": image_url
